@@ -12,19 +12,20 @@ Preprocess Images : Resize, Flip, Normalize
 '''
 
 
-def preprocess_image(image, image_size):
+def preprocess_image(image, image_height, image_width):
     
-    image = tf.image.resize(image, [image_size, image_size])
-    image = tf.image.random_flip_left_right(image)
+    image = tf.image.resize(image, [image_height, image_width])
+    #image = tf.image.random_flip_left_right(image)
     image /= 255.0
     return image
 
 
-def parse_image_function(image_path, label, image_size):
+def parse_image_function(image_path, label, image_height, image_width):
       
     image_string = tf.io.read_file(image_path)
-    image = tf.image.decode_jpeg(image_string, channels=3)
-    image = preprocess_image(image, image_size)
+    #image = tf.image.decode_jpeg(image_string, channels=3)
+    image = tf.image.decode_png(image_string, channels=3)
+    image = preprocess_image(image, image_height, image_width)
     return image, label
 
 
@@ -42,7 +43,7 @@ def get_dataset(dir, params, phase='train'):
 
     AUTOTUNE   =  tf.data.experimental.AUTOTUNE
     dataset    =  tf.data.Dataset.from_tensor_slices((image_paths, image_label))
-    dataset    =  dataset.map(lambda x, y: parse_image_function(x, y, params.image_size))
+    dataset    =  dataset.map(lambda x, y: parse_image_function(x, y, params.image_height, params.image_width))
     dataset    =  dataset.batch(params.batch_size).prefetch(AUTOTUNE)
     
     return dataset, len(image_paths)
