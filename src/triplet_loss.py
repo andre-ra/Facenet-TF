@@ -16,7 +16,6 @@ def _pairwise_distances(embeddings, squared=False):
     # Get the dot product between all embeddings
     # shape (batch_size, batch_size)
     dot_product = tf.matmul(embeddings, tf.transpose(embeddings))
-
     # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
     # This also provides more numerical stability (the diagonal of the result will be exactly 0).
     # shape (batch_size,)
@@ -43,6 +42,47 @@ def _pairwise_distances(embeddings, squared=False):
 
     return distances
 
+def evaluate_distances(embeddings,eval_embeddings,squared=False):
+    # Get the dot product between all embeddings
+    # shape (batch_size, batch_size)
+    dot_product = tf.matmul(eval_embeddings, tf.transpose(embeddings))
+    # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
+    # This also provides more numerical stability (the diagonal of the result will be exactly 0).
+    # shape (batch_size,)
+    square_norm = tf.linalg.diag_part(dot_product)
+
+    dot_product_eval = tf.matmul(eval_embeddings, tf.transpose(eval_embeddings))
+    # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
+    # This also provides more numerical stability (the diagonal of the result will be exactly 0).
+    # shape (batch_size,)
+    square_norm_eval = tf.linalg.diag_part(dot_product_eval)
+
+    dot_product_train = tf.matmul(embeddings, tf.transpose(embeddings))
+    # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
+    # This also provides more numerical stability (the diagonal of the result will be exactly 0).
+    # shape (batch_size,)
+    square_norm_train = tf.linalg.diag_part(dot_product_train)
+
+    # Compute the pairwise distance matrix as we have:
+    # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
+    # shape (batch_size, batch_size)
+    distances = tf.expand_dims(square_norm_eval, 1) - 2.0 * dot_product + tf.expand_dims(square_norm_train, 0)
+
+    # Because of computation errors, some distances might be negative so we put everything >= 0.0
+    distances = tf.maximum(distances, 0.0)
+
+    if not squared:
+        # Because the gradient of sqrt is infinite when distances == 0.0 (ex: on the diagonal)
+        # we need to add a small epsilon where distances == 0.0
+        mask = tf.cast(tf.equal(distances, 0.0), dtype=tf.float32)
+        distances = distances + mask * 1e-16
+
+        distances = tf.sqrt(distances)
+
+        # Correct the epsilon added: set the distances on the mask to be exactly 0.0
+        distances = distances * (1.0 - mask)
+
+    return distances
 
 def _get_anchor_positive_triplet_mask(labels):
     """Return a 2D mask where mask[a, p] is True iff a and p are distinct and have same label.
@@ -189,8 +229,8 @@ def batch_hard_triplet_loss(labels, embeddings, margin=10, squared=False):
     hard_positive_indices = tf.math.argmax(anchor_positive_dist, axis=1)
     tf.summary.scalar("hardest_positive_dist", tf.reduce_mean(hardest_positive_dist))
     
-    for i in hard_positive_indices.numpy():
-        print((labels[i]).numpy())
+    #for i in hard_positive_indices.numpy():
+    #    print((labels[i]).numpy())
 
     # For each anchor, get the hardest negative
     # First, we need to get a mask for every valid negative (they should have different labels)

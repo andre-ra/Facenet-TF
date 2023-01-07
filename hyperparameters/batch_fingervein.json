@@ -1,0 +1,1 @@
+{"learning_rate": 0.001, "batch_size": 36, "class_size": 18,"num_epochs": 10, "num_channels": 3, "use_batch_norm": false, "bn_momentum": 0.9, "margin": 0.5, "embedding_size": 128, "triplet_strategy": "batch_hard", "squared": false, "image_height": 170, "image_width":306, "num_labels": 1440, "train_size": 1080, "eval_size": 360, "num_parallel_calls": 4, "save_summary_steps": 10}
